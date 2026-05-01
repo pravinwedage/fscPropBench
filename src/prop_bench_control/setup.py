@@ -14,8 +14,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'),
             glob('launch/*.py')),
-        # Throttle profiles are resolved at runtime by main._find_throttle_profile_dir()
-        # which walks up the repo tree — no install step needed.
+        (os.path.join('share', package_name, 'throttle_profile'),
+            glob('throttle_profile/*.csv')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

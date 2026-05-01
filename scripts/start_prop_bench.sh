@@ -36,8 +36,15 @@ else
     echo "        Install via: sudo snap install micro-xrce-dds-agent --edge"
     exit 1
 fi
-echo "Agent binary : $AGENT_BIN"
-echo "Serial port  : $PORT"
+export PROP_BENCH_PROFILE_DIR="$SCRIPT_DIR/../src/prop_bench_control/throttle_profile"
+if [ ! -d "$PROP_BENCH_PROFILE_DIR" ]; then
+    echo "WARNING: Profile directory not found at $PROP_BENCH_PROFILE_DIR"
+    echo "GUI will fallback to internal share or home directory."
+fi
+
+echo "Agent binary  : $AGENT_BIN"
+echo "Serial port   : $PORT"
+echo "Profile dir   : $PROP_BENCH_PROFILE_DIR"
 
 exec ros2 launch prop_bench_control prop_bench.launch.py \
     serial_port:="$PORT" \

@@ -86,6 +86,7 @@ fscPropBench/              ← workspace root  (run colcon build here)
 └── src/
     ├── px4_msgs/          ← clone this in
     └── prop_bench_control/
+        └── throttle_profile/  ← CSV profiles live here
 ```
 
 Clone `px4_msgs` and check out the branch matching PX4 v1.16.
@@ -271,8 +272,7 @@ ros2 run prop_bench_control prop_bench_gui
 
 ### Step Profile (steady-state testing)
 
-The **Step Profile Generator** panel is the quickest way to run a fixed-throttle
-steady-state hold:
+The **Step Profile Generator** panel is the quickest way to run a fixed-throttle steady-state hold:
 
 1. Uncheck **Enable Manual** to enter profile mode.
 2. Set **Target** (0 – 100 %) and **Hold** duration (seconds).
@@ -291,7 +291,10 @@ Throttle returns to zero automatically when the hold ends.
 ### CSV Throttle Profile Mode (arbitrary waveforms)
 
 1. Uncheck **Enable Manual**.
-2. Click **Scan Throttle Profile** — lists `.csv` files from `throttle_profile/`.
+2. Click **Scan Throttle Profile** — lists `.csv` files from `src/prop_bench_control/throttle_profile/`.
+   New files added to that folder are picked up immediately without rebuilding.
+   To use a different folder, set the environment variable before launching:
+   `export PROP_BENCH_PROFILE_DIR=/path/to/your/profiles`
 3. Select a file and click **Load Throttle Profile** — previews the waveform.
 4. **Arm**, then click **Start**.
    - **Wait phase**: 2 s at zero throttle.

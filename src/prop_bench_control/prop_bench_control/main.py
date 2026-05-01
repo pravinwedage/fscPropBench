@@ -28,60 +28,61 @@ def _find_throttle_profile_dir() -> str:
     """
     Resolve the throttle profile directory.
 
-    Expected repo layout (this file is at src/prop_bench_control/prop_bench_control/main.py):
-        fscPropBench/
-        ├── throttle_profile/   ← target
-        └── src/
-            └── prop_bench_control/
-                └── prop_bench_control/
-                    └── main.py  ← here
-
     Priority:
-    1. Derived path from known repo structure (4 levels up from this file)
-    2. Walk up from this file as a safety net
-    3. ~/throttle_profile as a last-resort fallback (created if it does not exist)
+    1. PROP_BENCH_PROFILE_DIR environment variable — set by start_prop_bench.sh
+       to point at the source tree, so new CSV files are visible immediately
+       without rebuilding. Can also be overridden manually in any terminal.
+    2. Installed share directory — fallback when the env var is not set and
+       the package has been built with colcon.
+    3. ~/throttle_profile — last-resort fallback, created if missing.
     """
-    # Priority 1: known repo structure — 4 levels up from this file is the repo root
-    here = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.join(here, '..', '..', '..', '..')
-    candidate = os.path.normpath(os.path.join(repo_root, 'throttle_profile'))
-    if os.path.isdir(candidate):
-        return candidate
+    # Priority 1: environment variable (set by start_prop_bench.sh)
+    env_dir = os.environ.get('PROP_BENCH_PROFILE_DIR', '').strip()
+    if env_dir and os.path.isdir(env_dir):
+        return env_dir
 
-    # Priority 2: walk up in case the repo is nested differently
-    for _ in range(6):
-        candidate = os.path.join(here, 'throttle_profile')
+    # Priority 2: installed share directory
+    try:
+        from ament_index_python.packages import get_package_share_directory
+        share_dir = get_package_share_directory('prop_bench_control')
+        candidate = os.path.join(share_dir, 'throttle_profile')
         if os.path.isdir(candidate):
             return candidate
-        here = os.path.dirname(here)
+    except Exception:
+        pass
 
-    # Priority 3: fallback
+    # Priority 3: last-resort fallback
     fallback = os.path.expanduser('~/throttle_profile')
     os.makedirs(fallback, exist_ok=True)
     return fallback
 
 
 def main(args=None):
+    # Initialize
     rclpy.init(args=args)
     node = PropBenchNode(freq=ROS_FREQ)
 
+    # GUI
     app = QtWidgets.QApplication(sys.argv)
-
     dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
     ui.setupUi(dialog)
 
+    # Load profiles and GUI/ROS node bridge
     csv_dir = _find_throttle_profile_dir()
     throttle_profile = ThrottleProfile(freq=ROS_FREQ)
-
+    # bridge from GUI to ROS node
     controller = PropBenchController(ui, node, throttle_profile, csv_dir)  # noqa: F841
 
+    # Background thread for ROS2 node
     spin_thread = Ros2SpinThread(node)
     spin_thread.start()
 
+    # Show GUI
     dialog.show()
     exit_code = app.exec_()
 
+    # Shutdown
     node.disarm()
     spin_thread.stop()
     node.destroy_node()
