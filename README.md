@@ -206,7 +206,7 @@ Additional setup on the Pixhawk is required. Connect the motor ESC cable to **I/
 
 #### Additional Settings
 
-Your setup may require additional parameter configuration in Pixhawk in order to ensure the system can be armed. This may vary depending on your actual hardware. A sample configuration file is located in `src/px4_configs`. 
+Your setup may require additional parameter configuration in Pixhawk in order to ensure the system can be armed. This may vary depending on your actual hardware. Please see [PX4 documentation](https://docs.px4.io/v1.16/en/) for assistance. A sample configuration file for a Pixhawk 6X board is located in `src/px4_configs`. 
 
 ## Usage
 
