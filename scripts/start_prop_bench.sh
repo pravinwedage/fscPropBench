@@ -17,7 +17,7 @@ source /opt/ros/humble/setup.bash
 
 # Source the colcon install space if it exists relative to this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_INSTALL="$SCRIPT_DIR/../../../../install/setup.bash"
+WORKSPACE_INSTALL="$SCRIPT_DIR/../install/setup.bash"
 if [ -f "$WORKSPACE_INSTALL" ]; then
     source "$WORKSPACE_INSTALL"
 else

@@ -28,29 +28,35 @@ def _find_throttle_profile_dir() -> str:
     """
     Resolve the throttle profile directory.
 
-    Priority:
-    1. Installed share directory (colcon build / ros2 run)
-    2. Sibling directory in the git repo (dev / source run)
-    3. ~/throttle_profiles as a fallback
-    """
-    try:
-        from ament_index_python.packages import get_package_share_directory
-        share_dir = get_package_share_directory('prop_bench_control')
-        candidate = os.path.join(share_dir, 'throttle_profiles')
-        if os.path.isdir(candidate):
-            return candidate
-    except Exception:
-        pass
+    Expected repo layout (this file is at src/prop_bench_control/prop_bench_control/main.py):
+        fscPropBench/
+        ├── throttle_profile/   ← target
+        └── src/
+            └── prop_bench_control/
+                └── prop_bench_control/
+                    └── main.py  ← here
 
-    # Walk up from this file to find throttle_profile/ in the repo
+    Priority:
+    1. Derived path from known repo structure (4 levels up from this file)
+    2. Walk up from this file as a safety net
+    3. ~/throttle_profile as a last-resort fallback (created if it does not exist)
+    """
+    # Priority 1: known repo structure — 4 levels up from this file is the repo root
     here = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.join(here, '..', '..', '..', '..')
+    candidate = os.path.normpath(os.path.join(repo_root, 'throttle_profile'))
+    if os.path.isdir(candidate):
+        return candidate
+
+    # Priority 2: walk up in case the repo is nested differently
     for _ in range(6):
         candidate = os.path.join(here, 'throttle_profile')
         if os.path.isdir(candidate):
             return candidate
         here = os.path.dirname(here)
 
-    fallback = os.path.expanduser('~/throttle_profiles')
+    # Priority 3: fallback
+    fallback = os.path.expanduser('~/throttle_profile')
     os.makedirs(fallback, exist_ok=True)
     return fallback
 
