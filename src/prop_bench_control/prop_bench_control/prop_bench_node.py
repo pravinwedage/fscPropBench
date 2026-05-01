@@ -84,16 +84,21 @@ class PropBenchNode(Node):
         self._nav_state: int = 0
 
         # ── publishers ────────────────────────────────────────────────────────
+        # offboard mode signal
         self._offboard_pub = self.create_publisher(
             OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
+        # motor command signal
         self._motors_pub = self.create_publisher(
             ActuatorMotors, '/fmu/in/actuator_motors', 10)
+        # arm, disarm or stop command signal
         self._cmd_pub = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', 10)
+        # data logging
         self._result_pub = self.create_publisher(
             TwistStamped, '/prop_bench/result', 10)
 
         # ── subscriber ────────────────────────────────────────────────────────
+        # listener for arming state and nav/flight mode state
         self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status',
             self._vehicle_status_cb,
@@ -107,9 +112,9 @@ class PropBenchNode(Node):
 
     def arm(self):
         """
-        Switch to offboard mode then arm.
+        Switch to offboard mode then arms.
         PX4 requires OffboardControlMode to be streaming before the mode
-        switch is accepted — our 100 Hz timer already ensures this.
+        switch is accepted, ensured by the 100 Hz control loop timer. 
         """
         self._send_vehicle_cmd(self.CMD_DO_SET_MODE, param1=1.0, param2=6.0)
         self._send_vehicle_cmd(self.CMD_ARM_DISARM, param1=1.0)

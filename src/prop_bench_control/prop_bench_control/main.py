@@ -62,7 +62,7 @@ def main(args=None):
     rclpy.init(args=args)
     node = PropBenchNode(freq=ROS_FREQ)
 
-    # GUI
+    # GUI Setup
     app = QtWidgets.QApplication(sys.argv)
     dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
