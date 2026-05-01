@@ -59,7 +59,7 @@ automated throttle sweep profiles.
 
 ## Installation
 
-Complete these steps once on a new machine.
+Built for Ubuntu 22.04 and ROS2 Humble. The following steps are required. 
 
 ### 1. ROS2 Humble
 
@@ -77,10 +77,9 @@ echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### 2. Workspace layout
+### 2. Workspace + px4_msgs
 
-This git repo is the ROS2 workspace root. `px4_msgs` must sit alongside
-`prop_bench_control` inside `src/`:
+This git repo is the ROS2 workspace root. `px4_msgs` is a required package and must sit alongside `prop_bench_control` inside `src/`:
 
 ```
 fscPropBench/              ← workspace root  (run colcon build here)
@@ -100,9 +99,6 @@ git checkout release/1.16    # branch for PX4 v1.16
 cd ../..                     # back to workspace root
 ```
 
-> If `release/1.16` does not exist, run `git branch -a` to list available
-> branches and pick the closest match.
-
 ### 3. Python dependencies
 
 ```bash
@@ -113,8 +109,7 @@ pip3 install pyqt5 matplotlib numpy
 
 ### 4. Micro-XRCE-DDS Agent
 
-This is a standalone binary that bridges the Pixhawk's internal uORB bus to ROS2
-DDS over the USB serial link. It is **not** a ROS2 package.
+This is a required standalone binary that bridges the Pixhawk's internal uORB bus to ROS2 DDS over the USB serial link. It is **not** a ROS2 package.
 
 **Option A — snap (recommended):**
 ```bash
@@ -133,7 +128,7 @@ cmake .. && make -j$(nproc) && sudo make install
 
 ### 5. Serial port permissions
 
-Without this the agent will fail with "permission denied" on `/dev/ttyUSB0`.
+Serial port access is required to connect to the Pixhawk. Without this the agent will fail with "permission denied" on `/dev/ttyUSB0`.
 
 ```bash
 sudo usermod -a -G dialout $USER
@@ -166,13 +161,7 @@ colcon build --packages-select prop_bench_control
 
 ### 8. Set up the workspace alias
 
-Sourcing every project's install space directly in `~/.bashrc` causes silent
-conflicts when working across multiple ROS2 projects (message definitions from
-different workspaces overwrite each other). The recommended approach is to add
-only the base ROS2 source to `~/.bashrc` and use a short **alias** to activate
-each project workspace on demand.
-
-Add this alias to `~/.bashrc`:
+An alias can be setup instead of manually sourcing the `setup.bash` file in each terminal or putting it in `~/.bashrc` and potentially having conflicts. Add this alias instead to `~/.bashrc`:
 
 ```bash
 echo "alias fscPropBench='source /home/pravin/workspaces/fscPropBench/fscPropBench/install/setup.bash'" >> ~/.bashrc
@@ -189,6 +178,8 @@ fscPropBench
 
 ### 9. PX4 Configuration (one-time, via QGroundControl)
 
+Additional setup on the Pixhawk is required. Connect the motor ESC cable to **I/O PWM OUT [MAIN] 1**. Pixhawk should be powered by the ground station laptop, and the ESC powered directly by a sufficient battery. 
+
 #### Parameters
 
 | Parameter | Value | Reason |
@@ -198,22 +189,24 @@ fscPropBench
 | `CBRK_SUPPLY_CHK` | `894281` | Skip supply voltage check |
 | `CBRK_IO_SAFETY` | `22027` | Skip IO safety switch |
 | `SYS_CTRL_ALLOC` | `1` | Enable dynamic control allocation |
-| `PWM_MAIN_FUNC4` | `101` | Route Motor 1 → **MAIN OUT 4** |
+| `PWM_MAIN_FUNC1` | `101` | Route Motor 1 → **MAIN OUT 1** |
 
-> **Why `PWM_MAIN_FUNC4 = 101`?**
+> **Why `PWM_MAIN_FUNC1 = 101`?**
 > The ROS2 node commands `ActuatorMotors.control[0]`, which PX4 calls "Motor 1"
-> (function code 101). Setting `PWM_MAIN_FUNC4 = 101` maps that motor command
-> to the physical **MAIN OUT 4** pin. All other `PWM_MAIN_FUNC*` should remain
+> (function code 101). Setting `PWM_MAIN_FUNC1 = 101` maps that motor command
+> to the physical **MAIN OUT 1** pin. All other `PWM_MAIN_FUNC*` should remain
 > at `0` (disabled) to prevent unintended outputs on the bench.
 
 #### Actuator mapping in QGroundControl (alternative to parameter above)
 
 1. Open **Vehicle Setup → Actuators**.
-2. Under **PWM MAIN**, set Output 4 to function **Motor 1**.
+2. Under **PWM MAIN**, set Output 1 to function **Motor 1**.
 3. Leave all other outputs as **Disabled**.
 4. Click **Save** and reboot the Pixhawk.
 
----
+#### Additional Settings
+
+Your setup may require additional parameter configuration in Pixhawk in order to ensure the system can be armed. This may vary depending on your actual hardware. A sample configuration file is located in `src/px4_configs`. 
 
 ## Usage
 
@@ -246,8 +239,7 @@ ls /dev/ttyACM*   # some Pixhawk configurations appear here
 ./scripts/start_prop_bench.sh /dev/ttyACM0   # explicit port
 ```
 
-This single command starts the **Micro-XRCE-DDS agent** and the **GUI** together
-in the same terminal. Both will print their output to the same window.
+This single command starts the **Micro-XRCE-DDS agent** and the **GUI** together in the same terminal. Both will print their output to the same window.
 
 ### Manual two-terminal alternative
 
