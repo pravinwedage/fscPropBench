@@ -27,6 +27,7 @@ Result topic (for rosbag recording)
 """
 
 import math
+import threading
 
 import rclpy
 from rclpy.node import Node
@@ -112,12 +113,15 @@ class PropBenchNode(Node):
 
     def arm(self):
         """
-        Switch to offboard mode then arms.
+        Switch to offboard mode then arm.
         PX4 requires OffboardControlMode to be streaming before the mode
-        switch is accepted, ensured by the 100 Hz control loop timer. 
+        switch is accepted, ensured by the 100 Hz control loop timer.
+        A 500 ms delay between SET_MODE and ARM prevents the temporary
+        rejection that occurs when both commands are sent simultaneously.
         """
         self._send_vehicle_cmd(self.CMD_DO_SET_MODE, param1=1.0, param2=6.0)
-        self._send_vehicle_cmd(self.CMD_ARM_DISARM, param1=1.0)
+        threading.Timer(1.5, lambda: self._send_vehicle_cmd(
+            self.CMD_ARM_DISARM, param1=1.0)).start()
 
     def disarm(self):
         self._throttle_normalized = 0.0
