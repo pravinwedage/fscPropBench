@@ -10,7 +10,7 @@
 #
 set -e
 
-PORT="${1:-/dev/ttyUSB0}"
+PORT="${1:-/dev/ttyACM0}"
 
 # ── Source ROS2 and workspace ────────────────────────────────────────────────
 source /opt/ros/humble/setup.bash

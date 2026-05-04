@@ -1,4 +1,4 @@
-# fscPropBench — ROS2 Prop Bench Controller
+# fscPropBench — ROS2 Propeller Bench Testing Controller
 
 ROS2 offboard throttle controller for a **Pixhawk 6** running **PX4 Pro v1.16**,
 connected via USB.  Provides a PyQt5 GUI for manual slider control and
@@ -9,25 +9,25 @@ automated throttle sweep profiles.
 ## Architecture Overview
 
 ```
-┌──────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────┐
 │  Laptop (Ubuntu 22.04 / ROS2 Humble)                  │
-│                                                        │
+│                                                       │
 │  ┌────────────────┐   Qt signals    ┌───────────────┐ │
 │  │  PyQt5 GUI     │◄───────────────►│  Controller   │ │
 │  │  (main thread) │                 │               │ │
 │  └────────────────┘                 └──────┬────────┘ │
 │                                            │calls     │
 │  ┌────────────────────────────────────────▼────────┐  │
-│  │  PropBenchNode (rclpy.Node)  ← Ros2SpinThread  │  │
+│  │  PropBenchNode (rclpy.Node)  ← Ros2SpinThread   │  │
 │  │                                                 │  │
-│  │  Pub: /fmu/in/offboard_control_mode  (100 Hz)  │  │
-│  │  Pub: /fmu/in/actuator_motors        (100 Hz)  │  │
-│  │  Pub: /fmu/in/vehicle_command        (on event)│  │
-│  │  Sub: /fmu/out/vehicle_status                  │  │
-│  │  Pub: /prop_bench/result (TwistStamped)        │  │
+│  │  Pub: /fmu/in/offboard_control_mode  (100 Hz)   │  │
+│  │  Pub: /fmu/in/actuator_motors        (100 Hz)   │  │
+│  │  Pub: /fmu/in/vehicle_command        (on event) │  │
+│  │  Sub: /fmu/out/vehicle_status                   │  │
+│  │  Pub: /prop_bench/result (TwistStamped)         │  │
 │  └─────────────────────────────────────────────────┘  │
-│                        │ DDS (uXRCE-DDS)               │
-│                        │ USB serial                    │
+│                        │ DDS (uXRCE-DDS)              │
+│                        │ USB serial                   │
 └────────────────────────┼──────────────────────────────┘
                          │
               ┌──────────▼──────────┐
@@ -165,9 +165,10 @@ colcon build --packages-select prop_bench_control
 An alias can be setup instead of manually sourcing the `setup.bash` file in each terminal or putting it in `~/.bashrc` and potentially having conflicts. Add this alias instead to `~/.bashrc`:
 
 ```bash
-echo "alias fscPropBench='source /home/pravin/workspaces/fscPropBench/fscPropBench/install/setup.bash'" >> ~/.bashrc
+echo "alias fscPropBench='source {PATH_TO_PARENT}/fscPropBench/install/setup.bash'" >> ~/.bashrc
 source ~/.bashrc
 ```
+Note: replace `{PATH_TO_PARENT}` with the actual path to where your workspace is located (e.g. ~/user/workspaces).
 
 After this, activate the workspace in any terminal with:
 
@@ -185,12 +186,18 @@ Additional setup on the Pixhawk is required. Connect the motor ESC cable to **I/
 
 | Parameter | Value | Reason |
 |-----------|-------|--------|
-| `COM_RCREQ` | `0` | Allow offboard control without RC receiver |
 | `COM_PREARM_MODE` | `0` | Disable pre-arm checks for bench use |
+| `COM_ARM_WO_GPS` | `1` (warning only) | Allow arming without GPS on bench |
+| `COM_ARM_CHK_ESCS` | `0` | Disable ESC presence check — standard PWM ESC cannot report status back to PX4 |
+| `COM_OBL_RC_ACT` | `7` | Disarm if offboard communication is lost |
+| `COM_OF_LOSS_T` | `2` | Seconds to wait before triggering offboard loss action |
+| `COM_RCL_EXCEPT` | `4` | Suppress RC loss failsafe when in offboard mode |
+| `COM_RC_IN_MODE` | `4` | Ignores RC Stick Input |
+| `NAV_RCL_ACT` | `7` | Set to Disarm for safety, but will be ignored if `COM_RC_IN_MODE` is set correctly |
 | `CBRK_SUPPLY_CHK` | `894281` | Skip supply voltage check |
 | `CBRK_IO_SAFETY` | `22027` | Skip IO safety switch |
-| `SYS_CTRL_ALLOC` | `1` | Enable dynamic control allocation |
 | `PWM_MAIN_FUNC1` | `101` | Route Motor 1 → **MAIN OUT 1** |
+| `UXRCE_DDS_CFG` | see Step 10 | Sets which physical port the uXRCE-DDS client uses to connect to ROS2 |
 
 > **Why `PWM_MAIN_FUNC1 = 101`?**
 > The ROS2 node commands `ActuatorMotors.control[0]`, which PX4 calls "Motor 1"
@@ -207,7 +214,105 @@ Additional setup on the Pixhawk is required. Connect the motor ESC cable to **I/
 
 #### Additional Settings
 
-Your setup may require additional parameter configuration in Pixhawk in order to ensure the system can be armed. This may vary depending on your actual hardware. Please see [PX4 documentation](https://docs.px4.io/v1.16/en/) for assistance. A sample configuration file for a Pixhawk 6X board is located in `src/px4_configs`. 
+Your setup may require additional parameter configuration or calibration (ESC) in Pixhawk in order to ensure the system can be armed. This may vary depending on your actual hardware. Some parameters may also require different values from those listed here.
+
+Please see [PX4 documentation](https://docs.px4.io/v1.16/en/) for assistance. A sample parameter configuration file for a Pixhawk 6X board is located in `src/px4_configs`.
+
+---
+
+### 10. Hardware Connection for uXRCE-DDS
+
+The uXRCE-DDS agent (running on the laptop) must have a physical communication link to PX4.
+The native USB cable used for QGroundControl **cannot** be shared — on most Pixhawk boards
+(including the Pixhawk 6X) the native USB port is hardwired to MAVLink at the firmware level
+and does not appear as an option in `UXRCE_DDS_CFG`.
+
+Check which options are available in your board's `UXRCE_DDS_CFG` parameter and follow the
+matching section below.
+
+---
+
+#### Option A — USB (if available in `UXRCE_DDS_CFG`)
+
+Some boards expose the native USB port as a configurable DDS option. If **USB** appears in
+the `UXRCE_DDS_CFG` dropdown:
+
+1. Set `UXRCE_DDS_CFG` = **USB** in QGroundControl.
+2. Reboot the Pixhawk.
+3. Disconnect QGroundControl — USB cannot serve MAVLink and DDS simultaneously.
+4. The existing `start_prop_bench.sh` script works as-is using `/dev/ttyACM0`.
+
+> **Note:** With this option QGroundControl cannot be open at the same time as the ROS2
+> controller. Use QGC only for initial configuration, then disconnect it before running
+> the bench.
+
+---
+
+#### Option B — TELEM port via USB-to-UART adapter (most common)
+
+Required hardware:
+- **USB-to-UART adapter** (FTDI FT232, CP2102, or CH340 — all widely available, ~$10)
+- **JST-GH 6-pin cable** matching the TELEM port on your Pixhawk
+
+Wiring (TELEM2 example — TELEM1 also works):
+
+| TELEM2 pin | UART adapter pin |
+|-----------|-----------------|
+| TX (pin 2) | RX |
+| RX (pin 3) | TX |
+| GND (pin 6) | GND |
+
+> Do not connect the 5V pin on the TELEM port to the adapter if the adapter is already
+> powered by USB.
+
+PX4 parameter setup:
+1. Set `UXRCE_DDS_CFG` = **TELEM2** (or TELEM1) in QGroundControl.
+2. Set `SER_TEL2_BAUD` = **921600** (or `SER_TEL1_BAUD` if using TELEM1).
+3. Reboot the Pixhawk.
+
+Update the startup script to use the adapter's port (typically `/dev/ttyUSB0`):
+```bash
+./scripts/start_prop_bench.sh /dev/ttyUSB0
+```
+
+The native USB cable can remain connected for QGroundControl simultaneously.
+
+---
+
+#### Option C — Ethernet (Pixhawk 6X and other boards with onboard ethernet)
+
+Required hardware:
+- **Ethernet cable** (straight or crossover) between laptop and Pixhawk ethernet port
+
+Laptop network setup — assign a static IP on the ethernet interface:
+```bash
+# Example using nmcli (NetworkManager)
+nmcli con add type ethernet ifname eth0 ip4 192.168.0.1/24
+```
+
+PX4 parameter setup:
+1. Set `UXRCE_DDS_CFG` = **Ethernet** in QGroundControl.
+2. Set `UXRCE_DDS_PRT` = **8888**.
+3. Set `UXRCE_DDS_AG_IP` = laptop ethernet IP as a 32-bit integer.
+   - `192.168.0.1` → `3232235521` (use an online IP-to-integer converter).
+4. Reboot the Pixhawk.
+
+Update the startup script — the agent runs over UDP instead of serial:
+```bash
+MicroXRCEAgent udp4 --port 8888
+```
+
+Update `launch/prop_bench.launch.py` to use UDP:
+```python
+ExecuteProcess(
+    cmd=['MicroXRCEAgent', 'udp4', '--port', '8888'],
+    ...
+)
+```
+
+The native USB cable can remain connected for QGroundControl simultaneously.
+
+---
 
 ## Usage
 
@@ -227,17 +332,15 @@ ROS2 workspaces you may have on the same machine.
 Plug the Pixhawk 6 into the laptop via USB. Confirm the port:
 
 ```bash
-ls /dev/ttyUSB*   # typically /dev/ttyUSB0
-# or
-ls /dev/ttyACM*   # some Pixhawk configurations appear here
+ls /dev/ttyACM*   # Pixhawk 6 typically appears here
 ```
 
 ### 3. Launch everything
 
 ```bash
 # From the repo root (fscPropBench/)
-./scripts/start_prop_bench.sh                # default port /dev/ttyUSB0
-./scripts/start_prop_bench.sh /dev/ttyACM0   # explicit port
+./scripts/start_prop_bench.sh                # default port /dev/ttyACM0
+./scripts/start_prop_bench.sh /dev/ttyACM1   # if multiple ACM devices present
 ```
 
 This single command starts the **Micro-XRCE-DDS agent** and the **GUI** together in the same terminal. Both will print their output to the same window.
