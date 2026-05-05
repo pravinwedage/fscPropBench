@@ -1,7 +1,7 @@
 """
 controller.py
 =============
-PropBenchController connects the PyQt5 GUI to the PropBenchNode and the
+PropBenchController connects the PyQt6 GUI to the PropBenchNode and the
 ThrottleProfile state machine.
 
 All GUI interaction happens here; the node and profile objects stay
@@ -12,8 +12,8 @@ import os
 import csv
 
 import numpy as np
-from PyQt5.QtCore import Qt, QStringListModel
-from PyQt5.QtWidgets import QVBoxLayout, QMessageBox
+from PyQt6.QtCore import Qt, QStringListModel
+from PyQt6.QtWidgets import QVBoxLayout, QMessageBox
 
 from prop_bench_control.prop_bench_node import PropBenchNode
 from prop_bench_control.throttle_profile import (
@@ -29,9 +29,10 @@ class PropBenchController:
 
     Lifecycle
     ---------
-    1. Instantiate after setupUi() and before app.exec_().
+    1. Instantiate after setupUi() and before app.exec().
     2. The ROS2 node runs in Ros2SpinThread; its signals arrive in the Qt
-       main thread via Qt.QueuedConnection (automatic for cross-thread emits).
+       main thread via Qt.ConnectionType.QueuedConnection (automatic for
+       cross-thread emits).
     3. GUI button/slider callbacks call node methods directly — these are
        thread-safe (simple Python attribute writes, publisher.publish is
        also thread-safe in rclpy).
@@ -119,8 +120,12 @@ class PropBenchController:
             self._ui.arm_buttom.setText('Disarm')
             self._node.arm()
 
-    def _on_manual_toggled(self, state: int):
-        self._manual_enabled = (state == Qt.Checked)
+    def _on_manual_toggled(self, state):
+        if isinstance(state, int):
+            self._manual_enabled = (state == 2) # 2 is the integer for Checked
+        else:
+            self._manual_enabled = (state == Qt.CheckState.Checked)
+        # self._manual_enabled = (state == Qt.CheckState.Checked)
         if not self._manual_enabled:
             self._throttle_pct = 0.0
             self._ui.Throttle.setValue(0)
@@ -163,9 +168,16 @@ class PropBenchController:
         # Re-apply the maximum every tick so the cap can never be bypassed
         # regardless of what other code path enabled the slider.
         self._apply_throttle_cap()
+        # DEBUG PRINT
+        print(f"Status -> Armed: {self._armed} | Manual: {self._manual_enabled}")
+
         if self._armed and self._manual_enabled:
+            if not self._ui.Throttle.isEnabled():
+                print("DEBUG: Enabling Slider")
             self._ui.Throttle.setEnabled(True)
         else:
+            if self._ui.Throttle.isEnabled():
+                print(f"DEBUG: Disabling Slider (Armed: {self._armed}, Manual: {self._manual_enabled})")
             self._ui.Throttle.setEnabled(False)
             if not self._manual_enabled:
                 self._ui.Throttle.setValue(0)
@@ -200,17 +212,17 @@ class PropBenchController:
         else:
             self._ui.Throttle.setMaximum(100)
 
-    def _on_cap_toggled(self, state: int):
-        if state == Qt.Unchecked:
+    def _on_cap_toggled(self, state):
+        if state != Qt.CheckState.Checked:
             reply = QMessageBox.warning(
                 None,
                 'Remove Throttle Cap',
                 'Are you sure you wish to uncap the throttle?\n\n'
                 'The motor can be commanded up to 100% throttle.',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
-            if reply != QMessageBox.Yes:
+            if reply != QMessageBox.StandardButton.Yes:
                 self._ui.throttle_cap_checkbox.blockSignals(True)
                 self._ui.throttle_cap_checkbox.setChecked(True)
                 self._ui.throttle_cap_checkbox.blockSignals(False)
@@ -237,18 +249,14 @@ class PropBenchController:
         Sequence (all at 100 Hz):
           1. 2 s at 0 %  — handled by ThrottleProfile's WAIT phase
           2. Single 0.0 sample so SPEED_UP phase completes instantly
-             (SPEED_UP ramps to profile_data[0]; if that is 0 the ramp is skipped)
           3. hold_duration seconds at target %
           4. Profile ends → throttle returns to 0 automatically
-
-        The result is a true step input with no ramp.
         """
         target = self._ui.step_target_spinbox.value()
         hold_dur = self._ui.step_duration_spinbox.value()
         freq = self._profile.frequency
 
         hold_steps = max(1, int(round(hold_dur * freq)))
-        # One leading 0 so the SPEED_UP phase skips immediately, then the step.
         data = [0.0] + [target] * hold_steps
 
         self._profile.load_throttle_profile(data)

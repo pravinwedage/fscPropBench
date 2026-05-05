@@ -14,7 +14,7 @@ import sys
 import os
 
 import rclpy
-from PyQt5 import QtWidgets
+from PyQt6 import QtWidgets  # PyQt6 enables HiDPI scaling automatically
 
 from prop_bench_control.prop_bench_node import PropBenchNode, Ros2SpinThread
 from prop_bench_control.throttle_profile import ThrottleProfile
@@ -80,7 +80,7 @@ def main(args=None):
 
     # Show GUI
     dialog.show()
-    exit_code = app.exec_()
+    exit_code = app.exec()
 
     # Shutdown
     node.disarm()

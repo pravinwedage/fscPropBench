@@ -103,7 +103,7 @@ cd ../..                     # back to workspace root
 ### 3. Python dependencies
 
 ```bash
-pip3 install pyqt5 matplotlib numpy
+pip3 install pyqt6 matplotlib numpy
 ```
 
 `ament_index_python` ships with ROS2 Humble and does not need a separate install.

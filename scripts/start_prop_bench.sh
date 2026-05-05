@@ -47,6 +47,16 @@ else
     echo "       Expected: $WORKSPACE_INSTALL"
 fi
 
+# ── Clean up stale agent processes ───────────────────────────────────────────
+# If a previous session was killed, the agent may still hold the serial port
+# open and the Pixhawk DDS client may be stuck in the old session state.
+# Kill any lingering agent processes and wait for the Pixhawk client to detect
+# the dropped session and re-initiate before the new agent starts.
+if pkill -f MicroXRCEAgent 2>/dev/null || pkill -f micro-xrce-dds-agent 2>/dev/null; then
+    echo "[info]  Stopped stale agent process — waiting 3 s for Pixhawk to reset DDS session..."
+    sleep 3
+fi
+
 # ── Launch ───────────────────────────────────────────────────────────────────
 # Detect which agent binary is available
 if command -v MicroXRCEAgent &>/dev/null; then

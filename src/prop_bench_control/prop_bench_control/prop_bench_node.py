@@ -32,7 +32,7 @@ import threading
 import rclpy
 from rclpy.node import Node
 
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from px4_msgs.msg import (
     OffboardControlMode,
