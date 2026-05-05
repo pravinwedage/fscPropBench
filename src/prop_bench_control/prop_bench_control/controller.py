@@ -168,9 +168,6 @@ class PropBenchController:
         # Re-apply the maximum every tick so the cap can never be bypassed
         # regardless of what other code path enabled the slider.
         self._apply_throttle_cap()
-        # DEBUG PRINT
-        print(f"Status -> Armed: {self._armed} | Manual: {self._manual_enabled}")
-
         if self._armed and self._manual_enabled:
             if not self._ui.Throttle.isEnabled():
                 print("DEBUG: Enabling Slider")

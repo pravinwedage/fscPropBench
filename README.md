@@ -28,12 +28,12 @@ automated throttle sweep profiles.
 │  └─────────────────────────────────────────────────┘  │
 │                        │ DDS (uXRCE-DDS)              │
 │                        │ USB serial                   │
+|             ┌──────────▼──────────┐                   |
+|             │  Micro-XRCE-DDS     │                   |
+|             │  Agent (laptop)     │                   |
+|             └──────────┬──────────┘                   |
 └────────────────────────┼──────────────────────────────┘
                          │
-              ┌──────────▼──────────┐
-              │  Micro-XRCE-DDS     │
-              │  Agent (laptop)     │
-              └──────────┬──────────┘
                          │ UART/USB
               ┌──────────▼──────────┐
               │  Pixhawk 6          │
@@ -50,7 +50,7 @@ automated throttle sweep profiles.
 | `prop_bench_control/prop_bench_node.py` | ROS2 node — all PX4 pub/sub, 100 Hz timer, Qt signal bridge |
 | `prop_bench_control/controller.py` | GUI↔node logic: arm/disarm, throttle routing, profile state |
 | `prop_bench_control/throttle_profile.py` | Throttle profile state machine (WAIT→SPEED_UP→PROFILE) |
-| `prop_bench_control/gui/motor_stand_gui.py` | PyQt5 widget layout (`Ui_Dialog`) |
+| `prop_bench_control/gui/motor_stand_gui.py` | PyQt6 widget layout (`Ui_Dialog`) |
 | `prop_bench_control/gui/mplcanvas.py` | Embedded Matplotlib canvas for profile preview |
 | `launch/prop_bench.launch.py` | ROS2 launch file (starts XRCE agent + GUI together) |
 | `scripts/start_prop_bench.sh` | One-command startup script |
@@ -295,7 +295,13 @@ Two connections are required simultaneously:
 > heartbeat to arm — if QGC is not connected, arming will be blocked with a
 > `gcs_connection_lost` flag regardless of all other parameters being correct.
 
-### 3. Launch the ROS2 controller
+### 3. Thrust Stand
+
+This setup uses a RCBenchmark Series 1585 Drone Thrust Stand to measure thrust, torque and RPM for the desired motor/esc/propeller combo. This ROS2 package should not conflict with the serial connection to the thrust stand data acquistion board. Please consult the user manual for setup of the thrust stand. 
+
+**IMPORTANT**: Propeller bench testing is dangerous. ensure that your thrust stand is firmly clamped to a strong, level surface. Ensure that all cables are secured with proper clearance from the propeller's plane of rotation. For best results, 
+
+### 4. Launch the ROS2 controller
 
 ```bash
 # From the repo root (fscPropBench/)
