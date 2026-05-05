@@ -178,9 +178,12 @@ class PropBenchNode(Node):
         msg = ActuatorMotors()
         msg.timestamp = self._timestamp_us()
         msg.timestamp_sample = msg.timestamp
-        # NaN disables a motor slot; only slot 0 (motor 1 on PX4) is used.
+        # All slots default to NaN (disabled). Slot 0 is only written when
+        # throttle > 0 — sending NaN at zero prevents the ESC from idle-spinning
+        # at the minimum armed PWM when the commanded throttle is zero.
         msg.control = [NAN] * 12
-        msg.control[0] = self._throttle_normalized
+        if self._throttle_normalized > 0.0:
+            msg.control[0] = self._throttle_normalized
         msg.reversible_flags = 0
         self._motors_pub.publish(msg)
 

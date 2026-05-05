@@ -49,6 +49,8 @@ class PropBenchController:
         self._armed = False        # mirrors user intent (toggled by Arm button)
         self._manual_enabled = False
         self._throttle_pct = 0.0  # 0.0 – 100.0
+        self._throttle_cap_enabled = True
+        self._throttle_cap_pct = 80.0
 
         # ── CSV list model ────────────────────────────────────────────────────
         self._csv_model = QStringListModel()
@@ -80,6 +82,9 @@ class PropBenchController:
         ui.profile_scan.clicked.connect(self._scan_csv_files)
         ui.profile_load.clicked.connect(self._load_csv_file)
         ui.step_generate_btn.clicked.connect(self._generate_step_profile)
+        ui.throttle_cap_checkbox.stateChanged.connect(self._on_cap_toggled)
+        ui.throttle_cap_spinbox.valueChanged.connect(self._on_cap_value_changed)
+        self._apply_throttle_cap()  # set slider max on startup
 
     # ── slots connected to ROS2 signals ───────────────────────────────────────
 
@@ -138,6 +143,8 @@ class PropBenchController:
     def _send_throttle(self):
         if not self._armed:
             self._throttle_pct = 0.0
+        elif self._throttle_cap_enabled:
+            self._throttle_pct = min(self._throttle_pct, self._throttle_cap_pct)
         self._node.set_throttle(self._throttle_pct)
 
     # ── GUI update helpers ────────────────────────────────────────────────────
@@ -153,6 +160,9 @@ class PropBenchController:
             self._ui.motor_profile_progress.setValue(self._profile.get_progress())
 
     def _update_slider_enable(self):
+        # Re-apply the maximum every tick so the cap can never be bypassed
+        # regardless of what other code path enabled the slider.
+        self._apply_throttle_cap()
         if self._armed and self._manual_enabled:
             self._ui.Throttle.setEnabled(True)
         else:
@@ -180,6 +190,43 @@ class PropBenchController:
             self._ui.profile_info.setText('Ramping to start throttle...')
         else:
             self._ui.profile_info.setText('Running throttle profile...')
+
+    # ── Throttle cap ──────────────────────────────────────────────────────────
+
+    def _apply_throttle_cap(self):
+        """Update slider maximum to match current cap state."""
+        if self._throttle_cap_enabled:
+            self._ui.Throttle.setMaximum(round(self._throttle_cap_pct))
+        else:
+            self._ui.Throttle.setMaximum(100)
+
+    def _on_cap_toggled(self, state: int):
+        if state == Qt.Unchecked:
+            reply = QMessageBox.warning(
+                None,
+                'Remove Throttle Cap',
+                'Are you sure you wish to uncap the throttle?\n\n'
+                'The motor can be commanded up to 100% throttle.',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                self._ui.throttle_cap_checkbox.blockSignals(True)
+                self._ui.throttle_cap_checkbox.setChecked(True)
+                self._ui.throttle_cap_checkbox.blockSignals(False)
+                return
+            self._throttle_cap_enabled = False
+        else:
+            self._throttle_cap_enabled = True
+        self._apply_throttle_cap()
+
+    def _on_cap_value_changed(self, value: float):
+        self._throttle_cap_pct = value
+        if self._throttle_cap_enabled:
+            self._apply_throttle_cap()
+            if self._throttle_pct > value:
+                self._throttle_pct = value
+                self._ui.Throttle.setValue(int(value))
 
     # ── Step profile generator ────────────────────────────────────────────────
 

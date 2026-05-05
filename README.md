@@ -222,95 +222,50 @@ Please see [PX4 documentation](https://docs.px4.io/v1.16/en/) for assistance. A 
 
 ### 10. Hardware Connection for uXRCE-DDS
 
-The uXRCE-DDS agent (running on the laptop) must have a physical communication link to PX4.
-The native USB cable used for QGroundControl **cannot** be shared — on most Pixhawk boards
-(including the Pixhawk 6X) the native USB port is hardwired to MAVLink at the firmware level
-and does not appear as an option in `UXRCE_DDS_CFG`.
+The uXRCE-DDS agent (running on the laptop) must have a dedicated physical link to PX4
+separate from the USB cable used by QGroundControl.
 
-Check which options are available in your board's `UXRCE_DDS_CFG` parameter and follow the
-matching section below.
+On the Pixhawk 6X (and most Pixhawk boards), the native USB port is hardwired to MAVLink
+at the firmware level and does not appear as an option in `UXRCE_DDS_CFG`. A USB-to-UART
+adapter connected to a TELEM port is required.
 
----
-
-#### Option A — USB (if available in `UXRCE_DDS_CFG`)
-
-Some boards expose the native USB port as a configurable DDS option. If **USB** appears in
-the `UXRCE_DDS_CFG` dropdown:
-
-1. Set `UXRCE_DDS_CFG` = **USB** in QGroundControl.
-2. Reboot the Pixhawk.
-3. Disconnect QGroundControl — USB cannot serve MAVLink and DDS simultaneously.
-4. The existing `start_prop_bench.sh` script works as-is using `/dev/ttyACM0`.
-
-> **Note:** With this option QGroundControl cannot be open at the same time as the ROS2
-> controller. Use QGC only for initial configuration, then disconnect it before running
-> the bench.
+> **Why QGroundControl must stay connected:** PX4 requires an active GCS (MAVLink) heartbeat
+> to arm. Without QGC connected via USB, `gcs_connection_lost` is flagged and arming is
+> blocked. The USB cable handles QGC and the UART adapter handles DDS — both must be
+> connected during bench operation.
 
 ---
 
-#### Option B — TELEM port via USB-to-UART adapter (most common)
+#### Required hardware
 
-Required hardware:
 - **USB-to-UART adapter** (FTDI FT232, CP2102, or CH340 — all widely available, ~$10)
-- **JST-GH 6-pin cable** matching the TELEM port on your Pixhawk
+- **JST-GH 6-pin to Dupont cable** matching the TELEM port on your Pixhawk
 
-Wiring (TELEM2 example — TELEM1 also works):
+#### Wiring — connect adapter to TELEM1
 
-| TELEM2 pin | UART adapter pin |
-|-----------|-----------------|
+| TELEM1 pin | UART adapter pin |
+|------------|-----------------|
 | TX (pin 2) | RX |
 | RX (pin 3) | TX |
 | GND (pin 6) | GND |
 
-> Do not connect the 5V pin on the TELEM port to the adapter if the adapter is already
-> powered by USB.
+> Do not connect the TELEM 5V pin to the adapter if the adapter is already powered by USB.
+> Ensure TX and RX are crossed — swapping them is the most common wiring mistake and
+> produces no data output.
 
-PX4 parameter setup:
-1. Set `UXRCE_DDS_CFG` = **TELEM2** (or TELEM1) in QGroundControl.
-2. Set `SER_TEL2_BAUD` = **921600** (or `SER_TEL1_BAUD` if using TELEM1).
-3. Reboot the Pixhawk.
+#### PX4 parameter setup
 
-Update the startup script to use the adapter's port (typically `/dev/ttyUSB0`):
+1. Set `UXRCE_DDS_CFG` = **TELEM1** in QGroundControl.
+2. Set `SER_TEL1_BAUD` = **921600** in QGroundControl.
+3. Save and reboot the Pixhawk.
+
+#### Run the startup script with the adapter port
+
 ```bash
 ./scripts/start_prop_bench.sh /dev/ttyUSB0
 ```
 
-The native USB cable can remain connected for QGroundControl simultaneously.
-
----
-
-#### Option C — Ethernet (Pixhawk 6X and other boards with onboard ethernet)
-
-Required hardware:
-- **Ethernet cable** (straight or crossover) between laptop and Pixhawk ethernet port
-
-Laptop network setup — assign a static IP on the ethernet interface:
-```bash
-# Example using nmcli (NetworkManager)
-nmcli con add type ethernet ifname eth0 ip4 192.168.0.1/24
-```
-
-PX4 parameter setup:
-1. Set `UXRCE_DDS_CFG` = **Ethernet** in QGroundControl.
-2. Set `UXRCE_DDS_PRT` = **8888**.
-3. Set `UXRCE_DDS_AG_IP` = laptop ethernet IP as a 32-bit integer.
-   - `192.168.0.1` → `3232235521` (use an online IP-to-integer converter).
-4. Reboot the Pixhawk.
-
-Update the startup script — the agent runs over UDP instead of serial:
-```bash
-MicroXRCEAgent udp4 --port 8888
-```
-
-Update `launch/prop_bench.launch.py` to use UDP:
-```python
-ExecuteProcess(
-    cmd=['MicroXRCEAgent', 'udp4', '--port', '8888'],
-    ...
-)
-```
-
-The native USB cable can remain connected for QGroundControl simultaneously.
+The USB cable remains connected for QGroundControl throughout.
 
 ---
 
@@ -327,23 +282,36 @@ fscPropBench
 This sources `install/setup.bash` for this project without affecting any other
 ROS2 workspaces you may have on the same machine.
 
-### 2. Connect the Pixhawk
+### 2. Connect hardware
 
-Plug the Pixhawk 6 into the laptop via USB. Confirm the port:
+Two connections are required simultaneously:
 
-```bash
-ls /dev/ttyACM*   # Pixhawk 6 typically appears here
-```
+| Connection | Port | Purpose |
+|-----------|------|---------|
+| USB cable (Pixhawk native USB) | `/dev/ttyACM0` | QGroundControl (MAVLink / GCS heartbeat) |
+| USB-to-UART adapter (TELEM1) | `/dev/ttyUSB0` | uXRCE-DDS agent (ROS2 communication) |
 
-### 3. Launch everything
+> **QGroundControl must be open and connected before arming.** PX4 requires an active GCS
+> heartbeat to arm — if QGC is not connected, arming will be blocked with a
+> `gcs_connection_lost` flag regardless of all other parameters being correct.
+
+### 3. Launch the ROS2 controller
 
 ```bash
 # From the repo root (fscPropBench/)
-./scripts/start_prop_bench.sh                # default port /dev/ttyACM0
-./scripts/start_prop_bench.sh /dev/ttyACM1   # if multiple ACM devices present
+./scripts/start_prop_bench.sh
 ```
 
-This single command starts the **Micro-XRCE-DDS agent** and the **GUI** together in the same terminal. Both will print their output to the same window.
+The script auto-detects the USB-UART adapter by scanning for `/dev/ttyUSB*` devices.
+The Pixhawk USB cable appears as `/dev/ttyACM*` and the UART adapter as `/dev/ttyUSB*` —
+these are distinct device types, so detection is reliable regardless of plug-in order.
+
+If multiple USB-serial adapters are connected, pass the port explicitly:
+```bash
+./scripts/start_prop_bench.sh /dev/ttyUSB1
+```
+
+This starts the **Micro-XRCE-DDS agent** and the **GUI** together in the same terminal.
 
 ### Manual two-terminal alternative
 

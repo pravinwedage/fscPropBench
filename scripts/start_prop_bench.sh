@@ -5,12 +5,34 @@
 # and the prop bench GUI together.
 #
 # Usage:
-#   ./scripts/start_prop_bench.sh                   # uses /dev/ttyUSB0
-#   ./scripts/start_prop_bench.sh /dev/ttyACM0      # explicit port
+#   ./scripts/start_prop_bench.sh                   # auto-detects ttyUSB* adapter
+#   ./scripts/start_prop_bench.sh /dev/ttyUSB1      # explicit port override
+#
+# Port detection logic:
+#   The Pixhawk USB cable always appears as /dev/ttyACM* (CDC-ACM device).
+#   The USB-to-UART adapter always appears as /dev/ttyUSB* (USB serial device).
+#   These are distinct device types so the adapter can be found automatically
+#   regardless of plug-in order.
 #
 set -e
 
-PORT="${1:-/dev/ttyACM0}"
+if [ -n "$1" ]; then
+    PORT="$1"
+else
+    # Auto-detect the USB-UART adapter port (ttyUSB*, not ttyACM*)
+    USB_PORTS=(/dev/ttyUSB*)
+    if [ "${USB_PORTS[0]}" = "/dev/ttyUSB*" ]; then
+        echo "[error] No USB-UART adapter found on any /dev/ttyUSB* port."
+        echo "        Plug in the UART adapter (TELEM1) and retry."
+        echo "        Or pass the port explicitly: $0 /dev/ttyUSBx"
+        exit 1
+    fi
+    if [ "${#USB_PORTS[@]}" -gt 1 ]; then
+        echo "[warn]  Multiple ttyUSB devices found: ${USB_PORTS[*]}"
+        echo "[warn]  Using ${USB_PORTS[0]}. Pass a port explicitly to override."
+    fi
+    PORT="${USB_PORTS[0]}"
+fi
 
 # ── Source ROS2 and workspace ────────────────────────────────────────────────
 source /opt/ros/humble/setup.bash

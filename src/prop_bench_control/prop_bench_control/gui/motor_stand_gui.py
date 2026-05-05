@@ -11,7 +11,7 @@ class Ui_Dialog:
         font = QtGui.QFont()
         font.setPointSize(31)
         Dialog.setFont(font)
-        Dialog.setWindowTitle('Prop Bench Controller')
+        Dialog.setWindowTitle('FSC Propeller Bench Test Controller')
 
         # ── Left panel: arm button, manual checkbox, throttle slider ────────
         self.verticalLayoutWidget = QtWidgets.QWidget(Dialog)
@@ -51,6 +51,32 @@ class Ui_Dialog:
         self.Throttle.setTickInterval(10)
         self.Throttle.setObjectName('Throttle')
         self.verticalLayout_4.addWidget(self.Throttle)
+
+        # ── Throttle cap group ────────────────────────────────────────────────
+        f_cap = QtGui.QFont()
+        f_cap.setPointSize(13)
+
+        self.throttle_cap_group = QtWidgets.QGroupBox('Throttle Limit',
+                                                       self.verticalLayoutWidget)
+        self.throttle_cap_group.setFont(f_cap)
+        cap_layout = QtWidgets.QVBoxLayout(self.throttle_cap_group)
+
+        self.throttle_cap_checkbox = QtWidgets.QCheckBox('Cap Throttle')
+        self.throttle_cap_checkbox.setFont(f_cap)
+        self.throttle_cap_checkbox.setChecked(True)
+        self.throttle_cap_checkbox.setObjectName('throttle_cap_checkbox')
+        cap_layout.addWidget(self.throttle_cap_checkbox)
+
+        self.throttle_cap_spinbox = QtWidgets.QDoubleSpinBox()
+        self.throttle_cap_spinbox.setFont(f_cap)
+        self.throttle_cap_spinbox.setRange(1.0, 100.0)
+        self.throttle_cap_spinbox.setSingleStep(1.0)
+        self.throttle_cap_spinbox.setValue(80.0)
+        self.throttle_cap_spinbox.setSuffix(' %')
+        self.throttle_cap_spinbox.setObjectName('throttle_cap_spinbox')
+        cap_layout.addWidget(self.throttle_cap_spinbox)
+
+        self.verticalLayout_4.addWidget(self.throttle_cap_group)
 
         # ── Top-right panel: live telemetry displays ─────────────────────────
         self.verticalLayoutWidget_3 = QtWidgets.QWidget(Dialog)
