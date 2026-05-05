@@ -299,7 +299,9 @@ Two connections are required simultaneously:
 
 This setup uses a RCBenchmark Series 1585 Drone Thrust Stand to measure thrust, torque and RPM for the desired motor/esc/propeller combo. This ROS2 package should not conflict with the serial connection to the thrust stand data acquistion board. Please consult the user manual for setup of the thrust stand. 
 
-**IMPORTANT**: Propeller bench testing is dangerous. ensure that your thrust stand is firmly clamped to a strong, level surface. Ensure that all cables are secured with proper clearance from the propeller's plane of rotation. For best results, 
+**IMPORTANT**: Propeller bench testing is dangerous. Ensure that your thrust stand is firmly clamped to a strong, level surface. Check that all cables are secured with proper clearance from the propeller's plane of rotation. A physical barrier between the user and the propeller is recommended, along with eye protection.  
+
+For best results, keep the propeller stream tube defined by the cylindrical volume (length = 3-4 propeller diameters infront and behind the propeller, circular area = propeller area) clear of any airflow obstructions, save for the thrust stand and mounting surface.
 
 ### 4. Launch the ROS2 controller
 
