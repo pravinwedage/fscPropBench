@@ -47,15 +47,38 @@ else
     echo "       Expected: $WORKSPACE_INSTALL"
 fi
 
-# ── Clean up stale agent processes ───────────────────────────────────────────
-# If a previous session was killed, the agent may still hold the serial port
-# open and the Pixhawk DDS client may be stuck in the old session state.
-# Kill any lingering agent processes and wait for the Pixhawk client to detect
-# the dropped session and re-initiate before the new agent starts.
-if pkill -f MicroXRCEAgent 2>/dev/null || pkill -f micro-xrce-dds-agent 2>/dev/null; then
-    echo "[info]  Stopped stale agent process — waiting 3 s for Pixhawk to reset DDS session..."
-    sleep 3
-fi
+# ── Clean up stale agent processes and wait for port release ─────────────────
+# Phase 1: Graceful SIGTERM so the agent can send CLOSE_SESSION to the Pixhawk.
+# This is the critical step — SIGKILL prevents the close-session handshake and
+# leaves the Pixhawk's DDS client stuck in "session active" until its internal
+# timeout elapses (potentially 10+ seconds).
+pkill -TERM -f MicroXRCEAgent       2>/dev/null || true
+pkill -TERM -f micro-xrce-dds-agent 2>/dev/null || true
+
+# Give the agent time to complete CLOSE_SESSION and the Pixhawk to process it.
+sleep 2
+
+# Phase 2: Force-kill any survivors that didn't respond to SIGTERM.
+pkill -9 -f MicroXRCEAgent       2>/dev/null || true
+pkill -9 -f micro-xrce-dds-agent 2>/dev/null || true
+
+# Wait until the serial port is actually free.
+WAIT=0
+while fuser "$PORT" >/dev/null 2>&1; do
+    if [ "$WAIT" -ge 8 ]; then
+        echo "[error] $PORT is still held open after 8 s. Check for other processes using it."
+        echo "        Run:  fuser -v $PORT"
+        exit 1
+    fi
+    echo "[info]  Waiting for $PORT to be released ($WAIT/8 s)..."
+    sleep 1
+    WAIT=$((WAIT + 1))
+done
+
+# After a clean CLOSE_SESSION the Pixhawk resets its DDS client immediately.
+# A short pause is still needed for the reset to complete.
+echo "[info]  Port free — waiting 2 s for Pixhawk DDS session reset..."
+sleep 2
 
 # ── Launch ───────────────────────────────────────────────────────────────────
 # Detect which agent binary is available

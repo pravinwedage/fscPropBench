@@ -12,7 +12,7 @@ Optional overrides:
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -49,6 +49,7 @@ def generate_launch_description():
         executable='prop_bench_gui',
         name='prop_bench_gui',
         output='screen',
+        on_exit=Shutdown(),
     )
 
     return LaunchDescription([
