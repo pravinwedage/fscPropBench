@@ -103,10 +103,10 @@ cd ../..                     # back to workspace root
 ### 3. Python dependencies
 
 ```bash
-pip3 install pyqt6 matplotlib numpy
+pip3 install pyqt6 matplotlib "numpy<2.0"
 ```
 
-`ament_index_python` ships with ROS2 Humble and does not need a separate install.
+`ament_index_python` ships with ROS2 Humble and does not need a separate install. The earlier ``numpy`` version is used to prevent conflicts with ``matplotlib`` used in ROS 2 Humble and Python 3.10. 
 
 ### 4. Micro-XRCE-DDS Agent
 

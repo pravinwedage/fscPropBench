@@ -14,6 +14,7 @@ PX4 topics used
   Publish  /fmu/in/actuator_motors        -- normalized motor command [0,1]
   Publish  /fmu/in/vehicle_command        -- arm / mode commands
   Subscribe /fmu/out/vehicle_status       -- arming state & nav state
+  Subscribe /fmu/out/actuator_outputs     -- PX4 actual actuator outputs (feedback)
 
 Result topic (for rosbag recording)
 ------------------------------------
@@ -26,8 +27,10 @@ Result topic (for rosbag recording)
     angular.z = voltage (V) -- future sensor hook
 """
 
+import csv
 import math
 import threading
+from datetime import datetime, timezone
 
 import rclpy
 from rclpy.node import Node
@@ -35,6 +38,7 @@ from rclpy.node import Node
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from px4_msgs.msg import (
+    ActuatorOutputs,
     OffboardControlMode,
     ActuatorMotors,
     VehicleCommand,
@@ -74,6 +78,17 @@ class PropBenchNode(Node):
     CMD_DO_SET_MODE = 176
     CMD_ARM_DISARM = 400
 
+    # CSV column headers for data recording
+    _CSV_COLUMNS = [
+        'timestamp_utc_iso8601',
+        'timestamp_unix_ms',
+        'throttle_cmd_pct',
+        'arming_state',
+        'nav_state',
+        'failsafe',
+        'px4_actuator_output_0',
+    ]
+
     def __init__(self, freq: int = 100):
         super().__init__('prop_bench')
         self.signals = PropBenchSignals()
@@ -83,6 +98,13 @@ class PropBenchNode(Node):
         self._throttle_normalized: float = 0.0  # 0.0 – 1.0
         self._vehicle_armed: bool = False
         self._nav_state: int = 0
+        self._latest_vehicle_status: VehicleStatus | None = None
+        self._latest_actuator_output_0: float = NAN
+
+        # ── recording state ───────────────────────────────────────────────────
+        self._recording: bool = False
+        self._csv_file = None
+        self._csv_writer = None
 
         # ── publishers ────────────────────────────────────────────────────────
         # offboard mode signal
@@ -98,11 +120,16 @@ class PropBenchNode(Node):
         self._result_pub = self.create_publisher(
             TwistStamped, '/prop_bench/result', 10)
 
-        # ── subscriber ────────────────────────────────────────────────────────
-        # listener for arming state and nav/flight mode state
+        # ── subscribers ───────────────────────────────────────────────────────
         self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status',
             self._vehicle_status_cb,
+            rclpy.qos.qos_profile_sensor_data,
+        )
+        # PX4 feedback: what was actually sent to the ESC
+        self.create_subscription(
+            ActuatorOutputs, '/fmu/out/actuator_outputs',
+            self._actuator_outputs_cb,
             rclpy.qos.qos_profile_sensor_data,
         )
 
@@ -145,22 +172,67 @@ class PropBenchNode(Node):
         msg.twist.angular.z = voltage
         self._result_pub.publish(msg)
 
+    def start_recording(self, filepath: str) -> None:
+        """Open a CSV file and begin writing one row per control-loop tick."""
+        if self._recording:
+            return
+        self._csv_file = open(filepath, 'w', newline='')
+        self._csv_writer = csv.writer(self._csv_file)
+        self._csv_writer.writerow(self._CSV_COLUMNS)
+        self._recording = True
+
+    def stop_recording(self) -> None:
+        """Flush and close the recording file."""
+        self._recording = False
+        fh = self._csv_file
+        self._csv_writer = None
+        self._csv_file = None
+        if fh:
+            try:
+                fh.flush()
+                fh.close()
+            except Exception:
+                pass
+
     # ── timer callback (spin thread, 100 Hz) ─────────────────────────────────
 
     def _control_loop(self):
         self._publish_offboard_mode()
         self._publish_motor_command()
+        if self._recording:
+            self._write_csv_row()
         self.signals.control_tick.emit()
 
-    # ── subscriber callback (spin thread) ────────────────────────────────────
+    # ── subscriber callbacks (spin thread) ───────────────────────────────────
 
     def _vehicle_status_cb(self, msg: VehicleStatus):
+        self._latest_vehicle_status = msg
         self._vehicle_armed = (msg.arming_state == self.ARMING_STATE_ARMED)
         self._nav_state = msg.nav_state
         self.signals.vehicle_status_changed.emit(self._vehicle_armed,
                                                   self._nav_state)
 
+    def _actuator_outputs_cb(self, msg: ActuatorOutputs):
+        if msg.noutputs > 0:
+            self._latest_actuator_output_0 = float(msg.output[0])
+
     # ── internal helpers ──────────────────────────────────────────────────────
+
+    def _write_csv_row(self):
+        writer = self._csv_writer
+        if writer is None:
+            return
+        now = datetime.now(timezone.utc)
+        vs = self._latest_vehicle_status
+        writer.writerow([
+            now.isoformat(timespec='milliseconds'),
+            int(now.timestamp() * 1000),
+            f'{self._throttle_normalized * 100.0:.2f}',
+            vs.arming_state if vs is not None else '',
+            vs.nav_state if vs is not None else '',
+            int(vs.failsafe) if vs is not None else '',
+            f'{self._latest_actuator_output_0:.4f}',
+        ])
 
     def _publish_offboard_mode(self):
         msg = OffboardControlMode()

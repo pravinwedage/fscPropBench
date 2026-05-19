@@ -10,6 +10,7 @@ free of Qt dependencies.
 
 import os
 import csv
+from datetime import datetime, timezone
 
 import numpy as np
 from PyQt6.QtCore import Qt, QStringListModel
@@ -53,6 +54,11 @@ class PropBenchController:
         self._throttle_cap_enabled = True
         self._throttle_cap_pct = 80.0
 
+        # ── recording state ───────────────────────────────────────────────────
+        self._recording = False
+        self._recordings_dir = os.path.expanduser('~/prop_bench_recordings')
+        os.makedirs(self._recordings_dir, exist_ok=True)
+
         # ── CSV list model ────────────────────────────────────────────────────
         self._csv_model = QStringListModel()
         ui.csv_view.setModel(self._csv_model)
@@ -85,6 +91,7 @@ class PropBenchController:
         ui.step_generate_btn.clicked.connect(self._generate_step_profile)
         ui.throttle_cap_checkbox.stateChanged.connect(self._on_cap_toggled)
         ui.throttle_cap_spinbox.valueChanged.connect(self._on_cap_value_changed)
+        ui.record_btn.clicked.connect(self._on_record_clicked)
         self._apply_throttle_cap()  # set slider max on startup
 
     # ── slots connected to ROS2 signals ───────────────────────────────────────
@@ -99,7 +106,7 @@ class PropBenchController:
         self._update_profile_status_label()
         self._node.publish_result(self._throttle_pct)
 
-    def _on_vehicle_status_changed(self, px4_armed: bool, nav_state: int):
+    def _on_vehicle_status_changed(self, px4_armed: bool, _: int):
         """Handle unexpected PX4 disarm (e.g. failsafe, pre-arm check fail)."""
         if not px4_armed and self._armed:
             self._armed = False
@@ -133,6 +140,23 @@ class PropBenchController:
     def _on_slider_moved(self):
         if self._manual_enabled and self._armed:
             self._throttle_pct = float(self._ui.Throttle.value())
+
+    def _on_record_clicked(self):
+        if not self._recording:
+            ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+            filepath = os.path.join(self._recordings_dir, f'recording_{ts}.csv')
+            self._node.start_recording(filepath)
+            self._recording = True
+            self._ui.record_btn.setText('Stop Recording')
+            self._ui.record_btn.setStyleSheet('background-color: #c0392b; color: white;')
+            self._ui.record_status_label.setText(f'Recording: {os.path.basename(filepath)}')
+        else:
+            self._node.stop_recording()
+            self._recording = False
+            self._ui.record_btn.setText('Start Recording')
+            self._ui.record_btn.setStyleSheet('')
+            self._ui.record_status_label.setText(
+                f'Saved to: {self._recordings_dir}')
 
     # ── throttle source logic ─────────────────────────────────────────────────
 
