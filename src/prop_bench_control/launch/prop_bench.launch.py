@@ -13,6 +13,7 @@ Optional overrides:
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, Shutdown
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -33,6 +34,11 @@ def generate_launch_description():
         default_value='MicroXRCEAgent',
         description='Micro-XRCE-DDS agent binary name (MicroXRCEAgent or micro-xrce-dds-agent)',
     )
+    record_bag_arg = DeclareLaunchArgument(
+        'record_bag',
+        default_value='false',
+        description='Set to "true" to record a rosbag alongside the GUI (all prop_bench topics)',
+    )
 
     xrce_agent = ExecuteProcess(
         cmd=[
@@ -52,10 +58,24 @@ def generate_launch_description():
         on_exit=Shutdown(),
     )
 
+    bag_record = ExecuteProcess(
+        cmd=[
+            'ros2', 'bag', 'record',
+            '/prop_bench/result',
+            '/fmu/out/vehicle_status',
+            '/fmu/out/actuator_outputs',
+        ],
+        output='screen',
+        name='rosbag_record',
+        condition=IfCondition(LaunchConfiguration('record_bag')),
+    )
+
     return LaunchDescription([
         serial_port_arg,
         baud_arg,
         agent_bin_arg,
+        record_bag_arg,
         xrce_agent,
         gui_node,
+        bag_record,
     ])

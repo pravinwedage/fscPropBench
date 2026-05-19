@@ -186,6 +186,44 @@ class Ui_Dialog:
 
         rv.addWidget(self.step_group, stretch=0)
 
+        # ── Data Recording ───────────────────────────────────────────────────
+        rec_box = QtWidgets.QGroupBox('Data Recording')
+        rec_box.setFont(self._f(12))
+        rec_box.setObjectName('rec_box')
+        rl = QtWidgets.QVBoxLayout(rec_box)
+        rl.setSpacing(6)
+
+        rec_btn_row = QtWidgets.QHBoxLayout()
+        rec_btn_row.setSpacing(8)
+
+        self.record_start_btn = QtWidgets.QPushButton('Start Recording')
+        self.record_start_btn.setFont(self._f(13))
+        self.record_start_btn.setObjectName('record_start_btn')
+        self.record_start_btn.setMinimumHeight(36)
+        rec_btn_row.addWidget(self.record_start_btn)
+
+        self.record_stop_btn = QtWidgets.QPushButton('Stop Recording')
+        self.record_stop_btn.setFont(self._f(13))
+        self.record_stop_btn.setObjectName('record_stop_btn')
+        self.record_stop_btn.setMinimumHeight(36)
+        rec_btn_row.addWidget(self.record_stop_btn)
+
+        self.record_location_btn = QtWidgets.QPushButton('Change Save Folder')
+        self.record_location_btn.setFont(self._f(13))
+        self.record_location_btn.setObjectName('record_location_btn')
+        self.record_location_btn.setMinimumHeight(36)
+        rec_btn_row.addWidget(self.record_location_btn)
+
+        rl.addLayout(rec_btn_row)
+
+        self.record_status_label = QtWidgets.QLabel('Not recording')
+        self.record_status_label.setFont(self._f(11))
+        self.record_status_label.setObjectName('record_status_label')
+        self.record_status_label.setWordWrap(True)
+        rl.addWidget(self.record_status_label)
+
+        rv.addWidget(rec_box, stretch=0)
+
         # ── CSV throttle profile (stretches vertically) ──────────────────────
         csv_box = QtWidgets.QGroupBox('CSV Throttle Profile')
         csv_box.setFont(self._f(11))

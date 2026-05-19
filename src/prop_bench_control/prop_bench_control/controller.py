@@ -8,13 +8,14 @@ All GUI interaction happens here; the node and profile objects stay
 free of Qt dependencies.
 """
 
+import json
 import os
 import csv
 from datetime import datetime, timezone
 
 import numpy as np
 from PyQt6.QtCore import Qt, QStringListModel
-from PyQt6.QtWidgets import QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import QVBoxLayout, QMessageBox, QFileDialog
 
 from prop_bench_control.prop_bench_node import PropBenchNode
 from prop_bench_control.throttle_profile import (
@@ -56,8 +57,8 @@ class PropBenchController:
 
         # ── recording state ───────────────────────────────────────────────────
         self._recording = False
-        self._recordings_dir = os.path.expanduser('~/prop_bench_recordings')
-        os.makedirs(self._recordings_dir, exist_ok=True)
+        self._config_path = os.path.expanduser('~/.config/prop_bench/settings.json')
+        self._recordings_dir = self._load_recordings_dir()
 
         # ── CSV list model ────────────────────────────────────────────────────
         self._csv_model = QStringListModel()
@@ -91,7 +92,10 @@ class PropBenchController:
         ui.step_generate_btn.clicked.connect(self._generate_step_profile)
         ui.throttle_cap_checkbox.stateChanged.connect(self._on_cap_toggled)
         ui.throttle_cap_spinbox.valueChanged.connect(self._on_cap_value_changed)
-        ui.record_btn.clicked.connect(self._on_record_clicked)
+        ui.record_start_btn.clicked.connect(self._on_record_start_clicked)
+        ui.record_stop_btn.clicked.connect(self._on_record_stop_clicked)
+        ui.record_location_btn.clicked.connect(self._on_record_location_clicked)
+        ui.record_stop_btn.setEnabled(False)
         self._apply_throttle_cap()  # set slider max on startup
 
     # ── slots connected to ROS2 signals ───────────────────────────────────────
@@ -141,22 +145,48 @@ class PropBenchController:
         if self._manual_enabled and self._armed:
             self._throttle_pct = float(self._ui.Throttle.value())
 
-    def _on_record_clicked(self):
-        if not self._recording:
-            ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-            filepath = os.path.join(self._recordings_dir, f'recording_{ts}.csv')
-            self._node.start_recording(filepath)
-            self._recording = True
-            self._ui.record_btn.setText('Stop Recording')
-            self._ui.record_btn.setStyleSheet('background-color: #c0392b; color: white;')
-            self._ui.record_status_label.setText(f'Recording: {os.path.basename(filepath)}')
-        else:
-            self._node.stop_recording()
-            self._recording = False
-            self._ui.record_btn.setText('Start Recording')
-            self._ui.record_btn.setStyleSheet('')
-            self._ui.record_status_label.setText(
-                f'Saved to: {self._recordings_dir}')
+    def _on_record_start_clicked(self):
+        ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        filepath = os.path.join(self._recordings_dir, f'recording_{ts}.csv')
+        self._node.start_recording(filepath)
+        self._recording = True
+        self._ui.record_start_btn.setEnabled(False)
+        self._ui.record_stop_btn.setEnabled(True)
+        self._ui.record_location_btn.setEnabled(False)
+        self._ui.record_status_label.setText(f'Recording: {os.path.basename(filepath)}')
+
+    def _on_record_stop_clicked(self):
+        self._node.stop_recording()
+        self._recording = False
+        self._ui.record_start_btn.setEnabled(True)
+        self._ui.record_stop_btn.setEnabled(False)
+        self._ui.record_location_btn.setEnabled(True)
+        self._ui.record_status_label.setText(f'Saved to: {self._recordings_dir}')
+
+    def _on_record_location_clicked(self):
+        chosen = QFileDialog.getExistingDirectory(
+            None, 'Select Recording Directory', self._recordings_dir)
+        if chosen:
+            self._recordings_dir = chosen
+            self._save_recordings_dir()
+            self._ui.record_status_label.setText(f'Save to: {self._recordings_dir}')
+
+    # ── persistent config ─────────────────────────────────────────────────────
+
+    def _load_recordings_dir(self) -> str:
+        default = os.path.expanduser('~/prop_bench_recordings')
+        try:
+            with open(self._config_path) as fh:
+                path = json.load(fh).get('recordings_dir', default)
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            path = default
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _save_recordings_dir(self):
+        os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
+        with open(self._config_path, 'w') as fh:
+            json.dump({'recordings_dir': self._recordings_dir}, fh)
 
     # ── throttle source logic ─────────────────────────────────────────────────
 
