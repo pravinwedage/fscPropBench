@@ -44,6 +44,13 @@ if args.waveform == 'step':
 else:
     default_name = f'{args.waveform}_{args.duration}s.csv'
 filename = args.output or os.path.join(profile_dir, default_name)
+if os.path.exists(filename):
+    base, ext = os.path.splitext(filename)
+    n = 1
+    while os.path.exists(f'{base} ({n}){ext}'):
+        n += 1
+    filename = f'{base} ({n}){ext}'
+
 with open(filename, 'w', newline='') as f:
     writer = csv.writer(f)
     for v in data:

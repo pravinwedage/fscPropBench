@@ -70,7 +70,7 @@ sudo apt install ros-humble-desktop python3-colcon-common-extensions
 If ROS2 is not yet installed at all, follow the full guide at
 https://docs.ros.org/en/humble/Installation.html first.
 
-Add the base ROS2 source to `~/.bashrc` so it is available in every terminal:
+Recommended: add the base ROS2 source to `~/.bashrc` so it is available in every terminal:
 
 ```bash
 echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
