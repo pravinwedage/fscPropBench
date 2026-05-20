@@ -105,8 +105,35 @@ class ThrottleProfile:
         return max(lo, min(value, hi))
 
 
-def generate_sine_profile(amplitude=10, frequency_hz=0.5, offset=30,
-                           sampling_rate=100, duration=5):
+def generate_sine_profile(amplitude=10, frequency_hz=0.5, mean=30,
+                           sampling_rate=100, duration=5, hold_time=1):
     """Generate a sine-wave throttle profile for testing."""
+    hold = [float(mean)] * int(hold_time * sampling_rate)
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
-    return (amplitude * np.sin(2 * np.pi * frequency_hz * t) + offset).tolist()
+    wave = (amplitude * np.sin(2 * np.pi * frequency_hz * t) + mean).tolist()
+    return hold + wave
+
+def generate_cosine_profile(amplitude=10, frequency_hz=0.5, mean=30,
+                           sampling_rate=100, duration=5, hold_time=1):
+    """Generate a cosine-wave throttle profile for testing."""
+    initial = float(mean - amplitude)
+    hold = [initial] * int(hold_time * sampling_rate)
+    t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
+    wave = (amplitude * np.cos(2 * np.pi * frequency_hz * t + np.pi) + mean).tolist()
+    return hold + wave
+
+def generate_step_profile(steps = None, pulse_length = 3, sampling_rate=100):
+    """Generate a step input throttle profile for testing."""
+    if steps is None:
+        steps = np.array([10])
+    else: 
+        steps = np.array(steps)
+
+    profile_bits = []
+    for i in steps:
+        t_i = np.ones(int(sampling_rate * pulse_length)) * i
+        profile_bits.append(t_i)
+
+    profile = np.concatenate(profile_bits) 
+
+    return profile.tolist()

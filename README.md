@@ -400,26 +400,57 @@ Result topic layout (`geometry_msgs/TwistStamped`):
 
 ---
 
-## Throttle Profile CSV Format
+## Throttle Profile CSV Generation
 
 - Single-column `.csv`, one value per row.
 - Values in range **0 – 100** (percent throttle).
-- Update rate assumed **100 Hz** (one row per 10 ms).
+- Update rate assumed **100 Hz** (one row per 10 ms), so one row = 10 ms of playback.
 
-Example — 5-second ramp to 50 %:
+Use `scripts/profile_generator.py` to generate profiles. Run it from anywhere after sourcing the workspace:
+
+```bash
+python3 scripts/profile_generator.py <waveform> [options]
 ```
-0
-5
-10
-15
-20
-25
-30
-35
-40
-45
-50
+
+**Waveform types**
+
+| Waveform | Description |
+|----------|-------------|
+| `sine`   | Sine wave, holds at `mean` for `hold_time` seconds before the wave starts |
+| `cosine` | Cosine wave, holds at `mean - amplitude` for `hold_time` seconds before the wave starts |
+| `step`   | Sequential step pulses of equal duration |
+
+**Common options**
+
+| Argument | Applies to | Default | Description |
+|----------|-----------|---------|-------------|
+| `--amplitude` | sine, cosine | 10 | Peak deviation from offset (%) |
+| `--frequency` | sine, cosine | 0.5 | Wave frequency (Hz) |
+| `--mean` | sine, cosine | 20 | Mean throttle value (%) |
+| `--duration` | sine, cosine | 10 | Wave duration in seconds (excludes hold) |
+| `--hold-time` | sine, cosine | 1 | Seconds held at initial value before wave |
+| `--sampling-rate` | all | 100 | Samples per second — must match control loop rate |
+| `--steps` | step | — | Space-separated throttle values for each pulse (%) |
+| `--pulse_length` | step | 3.0 | Duration of each pulse (s) |
+| `--output` | all | — | Override output path (default: `throttle_profile/<name>.csv`) |
+
+**Examples**
+
+```bash
+# Sine: 10% amplitude, 0.5 Hz, mean 20%, 10 s wave, 1 s hold
+python3 scripts/profile_generator.py sine
+
+# Cosine with custom params
+python3 scripts/profile_generator.py cosine --amplitude 15 --mean 30 --duration 5
+
+# Three-step sequence: 20% → 40% → 60%, 3 s each
+python3 scripts/profile_generator.py step --steps 20 40 60 --pulse_length 3
+
+# Custom output path
+python3 scripts/profile_generator.py sine --output /tmp/my_profile.csv
 ```
+
+Output is written to `src/prop_bench_control/throttle_profile/` by default and can be loaded directly from the GUI using **Scan Throttle Profile → Load Throttle Profile**.
 
 ---
 
