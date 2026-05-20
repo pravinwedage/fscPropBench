@@ -39,9 +39,11 @@ from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from px4_msgs.msg import (
     ActuatorOutputs,
+    FailsafeFlags,
     OffboardControlMode,
     ActuatorMotors,
     VehicleCommand,
+    VehicleCommandAck,
     VehicleStatus,
 )
 from geometry_msgs.msg import TwistStamped
@@ -59,6 +61,7 @@ class PropBenchSignals(QObject):
     """
     control_tick = pyqtSignal()
     vehicle_status_changed = pyqtSignal(bool, int)  # (is_armed, nav_state)
+    failsafe_changed = pyqtSignal(bool, bool)        # (offboard_lost, gcs_lost)
 
 
 # ── ROS2 node ────────────────────────────────────────────────────────────────
@@ -84,8 +87,11 @@ class PropBenchNode(Node):
         'timestamp_unix_ms',
         'throttle_cmd_pct',
         'arming_state',
+        'latest_disarming_reason',
         'nav_state',
         'failsafe',
+        'offboard_signal_lost',
+        'gcs_connection_lost',
         'px4_actuator_output_0',
     ]
 
@@ -100,6 +106,9 @@ class PropBenchNode(Node):
         self._nav_state: int = 0
         self._latest_vehicle_status: VehicleStatus | None = None
         self._latest_actuator_output_0: float = NAN
+        self._offboard_signal_lost: bool = False
+        self._gcs_connection_lost: bool = False
+        self._latest_disarming_reason: int = 0
 
         # ── recording state ───────────────────────────────────────────────────
         self._recording: bool = False
@@ -121,17 +130,29 @@ class PropBenchNode(Node):
             TwistStamped, '/prop_bench/result', 10)
 
         # ── subscribers ───────────────────────────────────────────────────────
-        self.create_subscription(
+        _best_effort = rclpy.qos.QoSProfile(
+            reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+            durability=rclpy.qos.DurabilityPolicy.VOLATILE,
+            history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        self._sub_vs   = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status',
-            self._vehicle_status_cb,
-            rclpy.qos.qos_profile_sensor_data,
-        )
+            self._vehicle_status_cb, _best_effort)
+        # Fallback: some PX4 v1.16 builds publish arming state on the v1 topic
+        self._sub_vs1  = self.create_subscription(
+            VehicleStatus, '/fmu/out/vehicle_status_v1',
+            self._vehicle_status_cb, _best_effort)
+        self._sub_fs   = self.create_subscription(
+            FailsafeFlags, '/fmu/out/failsafe_flags',
+            self._failsafe_flags_cb, _best_effort)
+        self._sub_ack  = self.create_subscription(
+            VehicleCommandAck, '/fmu/out/vehicle_command_ack',
+            self._vehicle_command_ack_cb, _best_effort)
         # PX4 feedback: what was actually sent to the ESC
-        self.create_subscription(
+        self._sub_ao   = self.create_subscription(
             ActuatorOutputs, '/fmu/out/actuator_outputs',
-            self._actuator_outputs_cb,
-            rclpy.qos.qos_profile_sensor_data,
-        )
+            self._actuator_outputs_cb, _best_effort)
 
         # ── 100 Hz control loop timer ─────────────────────────────────────────
         self.create_timer(1.0 / freq, self._control_loop)
@@ -206,11 +227,34 @@ class PropBenchNode(Node):
     # ── subscriber callbacks (spin thread) ───────────────────────────────────
 
     def _vehicle_status_cb(self, msg: VehicleStatus):
+        prev_armed = self._vehicle_armed
         self._latest_vehicle_status = msg
         self._vehicle_armed = (msg.arming_state == self.ARMING_STATE_ARMED)
         self._nav_state = msg.nav_state
+        self._latest_disarming_reason = int(msg.latest_disarming_reason)
+        if prev_armed and not self._vehicle_armed:
+            print(f'[PX4] DISARMED — reason code {self._latest_disarming_reason}')
         self.signals.vehicle_status_changed.emit(self._vehicle_armed,
                                                   self._nav_state)
+
+    def _failsafe_flags_cb(self, msg: FailsafeFlags):
+        prev_offboard = self._offboard_signal_lost
+        prev_gcs = self._gcs_connection_lost
+        self._offboard_signal_lost = bool(msg.offboard_control_signal_lost)
+        self._gcs_connection_lost = bool(msg.gcs_connection_lost)
+        if self._offboard_signal_lost and not prev_offboard:
+            print('[PX4] OFFBOARD SIGNAL LOST — COM_OF_LOSS_T countdown started')
+        if not self._offboard_signal_lost and prev_offboard:
+            print('[PX4] Offboard signal recovered')
+        if self._gcs_connection_lost and not prev_gcs:
+            print('[PX4] GCS CONNECTION LOST')
+        self.signals.failsafe_changed.emit(self._offboard_signal_lost,
+                                           self._gcs_connection_lost)
+
+    def _vehicle_command_ack_cb(self, msg: VehicleCommandAck):
+        # CMD_ARM_DISARM = 400; result 0 = ACCEPTED
+        if msg.command == self.CMD_ARM_DISARM:
+            print(f'[PX4] CMD_ARM_DISARM ack  result={msg.result}')
 
     def _actuator_outputs_cb(self, msg: ActuatorOutputs):
         if msg.noutputs > 0:
@@ -229,8 +273,11 @@ class PropBenchNode(Node):
             int(now.timestamp() * 1000),
             f'{self._throttle_normalized * 100.0:.2f}',
             vs.arming_state if vs is not None else '',
+            self._latest_disarming_reason,
             vs.nav_state if vs is not None else '',
             int(vs.failsafe) if vs is not None else '',
+            int(self._offboard_signal_lost),
+            int(self._gcs_connection_lost),
             f'{self._latest_actuator_output_0:.4f}',
         ])
 
