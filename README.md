@@ -437,7 +437,7 @@ python3 scripts/profile_generator.py <waveform> [options]
 **Examples**
 
 ```bash
-# Sine: 10% amplitude, 0.5 Hz, mean 20%, 10 s wave, 1 s hold
+# Sine: 10% amplitude, 0.5 Hz, mean 25%, 10 s wave, 1 s initial hold time
 python3 scripts/profile_generator.py sine
 
 # Cosine with custom params
