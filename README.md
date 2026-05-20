@@ -17,7 +17,7 @@ automated throttle sweep profiles.
 │  │  (main thread) │                 │               │ │
 │  └────────────────┘                 └──────┬────────┘ │
 │                                            │calls     │
-│  ┌────────────────────────────────────────▼────────┐  │
+│  ┌─────────────────────────────────────────▼───────┐  │
 │  │  PropBenchNode (rclpy.Node)  ← Ros2SpinThread   │  │
 │  │                                                 │  │
 │  │  Pub: /fmu/in/offboard_control_mode  (100 Hz)   │  │
@@ -417,16 +417,16 @@ python3 scripts/profile_generator.py <waveform> [options]
 | Waveform | Description |
 |----------|-------------|
 | `sine`   | Sine wave, holds at `mean` for `hold_time` seconds before the wave starts |
-| `cosine` | Cosine wave, holds at `mean - amplitude` for `hold_time` seconds before the wave starts |
+| `cosine` | Cosine wave, holds at `mean - amplitude` (begins at bottom of wave) for `hold_time` seconds before the wave starts |
 | `step`   | Sequential step pulses of equal duration |
 
 **Common options**
 
 | Argument | Applies to | Default | Description |
 |----------|-----------|---------|-------------|
-| `--amplitude` | sine, cosine | 10 | Peak deviation from offset (%) |
+| `--amplitude` | sine, cosine | 10 | Peak deviation from mean (%) |
 | `--frequency` | sine, cosine | 0.5 | Wave frequency (Hz) |
-| `--mean` | sine, cosine | 20 | Mean throttle value (%) |
+| `--mean` | sine, cosine | 25 | Mean throttle value (%) |
 | `--duration` | sine, cosine | 10 | Wave duration in seconds (excludes hold) |
 | `--hold-time` | sine, cosine | 1 | Seconds held at initial value before wave |
 | `--sampling-rate` | all | 100 | Samples per second — must match control loop rate |
