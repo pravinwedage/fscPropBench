@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'prop_bench_control'))
 
-from prop_bench_control.throttle_profile import generate_sine_profile, generate_cosine_profile, generate_step_profile
+from prop_bench_control.throttle_profile import generate_sine_profile, generate_cosine_profile, generate_step_profile # type: ignore
 import csv
 import argparse
 
