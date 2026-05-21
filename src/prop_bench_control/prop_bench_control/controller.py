@@ -50,6 +50,7 @@ class PropBenchController:
 
         # ── local state ───────────────────────────────────────────────────────
         self._armed = False        # mirrors user intent (toggled by Arm button)
+        self._arm_confirming = False  # True while PX4 arm sequence is in flight
         self._manual_enabled = False
         self._throttle_pct = 0.0  # 0.0 – 100.0
         self._throttle_cap_enabled = True
@@ -112,9 +113,12 @@ class PropBenchController:
 
     def _on_vehicle_status_changed(self, px4_armed: bool, _: int):
         """Handle unexpected PX4 disarm (e.g. failsafe, pre-arm check fail)."""
-        if not px4_armed and self._armed:
+        if px4_armed:
+            self._arm_confirming = False  # PX4 confirmed armed; future disarms are real
+        if not px4_armed and self._armed and not self._arm_confirming:
             self._armed = False
             self._throttle_pct = 0.0
+            self._profile.reset()
             self._ui.arm_buttom.setText('Arm')
             self._ui.arm_status.setText('Disarmed (PX4)')
 
@@ -124,10 +128,12 @@ class PropBenchController:
         self._throttle_pct = 0.0
         if self._armed:
             self._armed = False
+            self._arm_confirming = False
             self._ui.arm_buttom.setText('Arm')
             self._node.disarm()
         else:
             self._armed = True
+            self._arm_confirming = True  # suppress false disarm until PX4 confirms
             self._ui.arm_buttom.setText('Disarm')
             self._node.arm()
 
