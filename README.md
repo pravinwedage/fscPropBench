@@ -191,6 +191,7 @@ Additional setup on the Pixhawk is required. Connect the motor ESC cable to **I/
 | `COM_ARM_CHK_ESCS` | `0` | Disable ESC presence check — standard PWM ESC cannot report status back to PX4 |
 | `COM_OBL_RC_ACT` | `7` | Disarm if offboard communication is lost |
 | `COM_OF_LOSS_T` | `2` | Seconds to wait before triggering offboard loss action |
+| `COM_DISARM_PRFLT` | `-1` | Disable pre-flight auto-disarm — PX4 disarms 10 s after arming if the vehicle has not taken off; on a fixed bench it never takes off, so this must be disabled |
 | `COM_RCL_EXCEPT` | `4` | Suppress RC loss failsafe when in offboard mode |
 | `COM_RC_IN_MODE` | `4` | Ignores RC Stick Input |
 | `NAV_RCL_ACT` | `7` | Set to Disarm for safety, but will be ignored if `COM_RC_IN_MODE` is set correctly |
