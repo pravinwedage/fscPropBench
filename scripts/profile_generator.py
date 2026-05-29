@@ -45,7 +45,7 @@ if args.waveform == 'step':
     n = len(args.steps) if args.steps else 1
     default_name = f'step_{n}pulses_{args.pulse_length}s.csv'
 else:
-    default_name = f'{args.waveform}_{args.duration}s.csv'
+    default_name = f'{args.waveform}_{args.duration}s_{args.frequency}Hz.csv'
 filename = args.output or os.path.join(profile_dir, default_name)
 if os.path.exists(filename):
     base, ext = os.path.splitext(filename)

@@ -144,10 +144,10 @@ def generate_tri_profile(amplitude=10, frequency_hz=0.5, mean=25,
     initial = float(mean - amplitude)
     hold = [initial] * int(hold_time * sampling_rate)
 
-    n = int(np.ceil(frequency_hz * duration))
+    n = int(np.ceil(frequency_hz * duration)) # number of periods
 
     profile_bits = []
-    for _ in range(n):
+    for _ in range(n): # linspaces for n periods of triangular wave, truncated later
         up = np.linspace(mean - amplitude, mean + amplitude, int(sampling_rate / frequency_hz / 2), endpoint=False)
         down = np.linspace(mean + amplitude, mean - amplitude, int(sampling_rate / frequency_hz / 2), endpoint=False)
         profile_bits.append(up)

@@ -447,7 +447,7 @@ python3 scripts/profile_generator.py <waveform> [options]
 python3 scripts/profile_generator.py sine
 
 # Cosine with custom params
-python3 scripts/profile_generator.py cosine --amplitude 15 --mean 30 --duration 5
+python3 scripts/profile_generator.py cosine --amplitude 15 --mean 30 --duration 5 --frequency 0.25
 
 # Three-step sequence: 20% → 40% → 60%, 3 s each
 python3 scripts/profile_generator.py step --steps 20 40 60 --pulse_length 3
