@@ -296,6 +296,10 @@ Two connections are required simultaneously:
 > heartbeat to arm — if QGC is not connected, arming will be blocked with a
 > `gcs_connection_lost` flag regardless of all other parameters being correct.
 
+A third connection to a thrust stand for data acquistion is highly recommended, such that both systems can sync data via the system clock. 
+
+The order in which these connectors are plugged into the ground station can have some effect. It is recommended to plug the Pixhawk and thrust stand first, and the UART adapter last. 
+
 ### 3. Thrust Stand
 
 This setup uses a RCBenchmark Series 1585 Drone Thrust Stand to measure thrust, torque and RPM for the desired motor/esc/propeller combo. This ROS2 package should not conflict with the serial connection to the thrust stand data acquistion board. Please consult the user manual for setup of the thrust stand. 
@@ -417,9 +421,10 @@ python3 scripts/profile_generator.py <waveform> [options]
 
 | Waveform | Description |
 |----------|-------------|
+| `step`   | Sequential step pulses of equal duration |
 | `sine`   | Sine wave, holds at `mean` for `hold_time` seconds before the wave starts |
 | `cosine` | Cosine wave, holds at `mean - amplitude` (begins at bottom of wave) for `hold_time` seconds before the wave starts |
-| `step`   | Sequential step pulses of equal duration |
+| `tri` | Triangular wave, holds at `mean - amplitude` (begins at bottom of wave) for `hold_time` seconds before the wave starts |
 
 **Common options**
 
@@ -429,8 +434,8 @@ python3 scripts/profile_generator.py <waveform> [options]
 | `--frequency` | sine, cosine | 0.5 | Wave frequency (Hz) |
 | `--mean` | sine, cosine | 25 | Mean throttle value (%) |
 | `--duration` | sine, cosine | 10 | Wave duration in seconds (excludes hold) |
-| `--hold-time` | sine, cosine | 1 | Seconds held at initial value before wave |
-| `--sampling-rate` | all | 100 | Samples per second — must match control loop rate |
+| `--hold_time` | sine, cosine | 1 | Seconds held at initial value before wave |
+| `--sampling_rate` | all | 100 | Samples per second — must match control loop rate |
 | `--steps` | step | — | Space-separated throttle values for each pulse (%) |
 | `--pulse_length` | step | 3.0 | Duration of each pulse (s) |
 | `--output` | all | — | Override output path (default: `throttle_profile/<name>.csv`) |
