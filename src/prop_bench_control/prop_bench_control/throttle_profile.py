@@ -137,3 +137,22 @@ def generate_step_profile(steps = None, pulse_length = 3, sampling_rate=100):
     profile = np.concatenate(profile_bits) 
 
     return profile.tolist()
+
+def generate_tri_profile(amplitude=10, frequency_hz=0.5, mean=25,
+                           sampling_rate=100, duration=10, hold_time=1):
+    """Generate a triangular wave throttle profile for testing."""
+    initial = float(mean - amplitude)
+    hold = [initial] * int(hold_time * sampling_rate)
+
+    n = int(np.ceil(frequency_hz * duration))
+
+    profile_bits = []
+    for _ in range(n):
+        up = np.linspace(mean - amplitude, mean + amplitude, int(sampling_rate / frequency_hz / 2), endpoint=False)
+        down = np.linspace(mean + amplitude, mean - amplitude, int(sampling_rate / frequency_hz / 2), endpoint=False)
+        profile_bits.append(up)
+        profile_bits.append(down)
+
+    profile = np.concatenate(profile_bits)
+
+    return hold + profile[:int(sampling_rate * duration)].tolist()

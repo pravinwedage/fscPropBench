@@ -2,17 +2,18 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'prop_bench_control'))
 
-from prop_bench_control.throttle_profile import generate_sine_profile, generate_cosine_profile, generate_step_profile # type: ignore
+from prop_bench_control.throttle_profile import generate_sine_profile, generate_cosine_profile, generate_step_profile, generate_tri_profile # type: ignore
 import csv
 import argparse
 
 parser = argparse.ArgumentParser(description='Generate a throttle profile CSV.')
-parser.add_argument('waveform', choices=['sine', 'cosine', 'step'], help='Waveform type')
+parser.add_argument('waveform', choices=['sine', 'cosine', 'step','tri'], help='Waveform type')
 parser.add_argument('--amplitude', type=float, default=10)
 parser.add_argument('--frequency', type=float, default=0.5)
 parser.add_argument('--mean', type=float, default=25)
-parser.add_argument('--sampling-rate', type=int, default=100)
+parser.add_argument('--sampling_rate', type=int, default=100)
 parser.add_argument('--duration', type=float, default=10)
+parser.add_argument('--hold_time', type=float, default=1.0)
 parser.add_argument('--output', type=str, default=None, help='Output CSV filename')
 parser.add_argument('--steps', type=float, nargs='+', default = None, help='List of step values separated by spaces')
 parser.add_argument('--pulse_length', type=float, default=3.0)
@@ -21,7 +22,8 @@ args = parser.parse_args()
 generators = {
     'sine': generate_sine_profile, 
     'cosine': generate_cosine_profile,
-    'step': generate_step_profile}
+    'step': generate_step_profile,
+    'tri': generate_tri_profile}
 if args.waveform == 'step':
     data = generators['step'](
         steps = args.steps,
@@ -35,6 +37,7 @@ else:
         mean=args.mean,
         sampling_rate=args.sampling_rate,
         duration=args.duration,
+        hold_time=args.hold_time,
     )
 
 profile_dir = os.path.join(os.path.dirname(__file__), '..', 'src', 'prop_bench_control', 'throttle_profile')
